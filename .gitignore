@@ -3,8 +3,4 @@ conf.py
 output/*
 .vscode/
 .project
-
-*.swp
-sync*
-*.spf
-*.rsync
+.env
