@@ -1,6 +1,7 @@
 conf.py
 *.pyc
 output/*
+umls/
 .vscode/
 .project
 .env

@@ -1,5 +1,9 @@
 \W
 
+SET autocommit=0;
+SET unique_checks=0;
+SET foreign_key_checks=0;
+
 load data local infile 'MRCOLS.RRF' into table MRCOLS fields terminated by '|' ESCAPED BY '' lines terminated by '\n'
 (@col,@des,@ref,@min,@av,@max,@fil,@dty)
 SET COL = NULLIF(@col,''),
@@ -316,3 +320,7 @@ load data local infile 'CHANGE/MERGEDLUI.RRF' into table MERGEDLUI fields termin
 SET PLUI = NULLIF(@plui,''),
 LUI = NULLIF(@lui,'');
 
+COMMIT;
+SET autocommit=1;
+SET unique_checks=1;
+SET foreign_key_checks=1;
