@@ -48,7 +48,7 @@ if [ $? -ne 0 ]; then ef=1; fi
 echo "finished creating tables ... `/bin/date`" >> mysql.log 2>&1
 
 echo "    Load tables ... `/bin/date`" >> mysql.log 2>&1
-mysql -vvv -u $user -p$password $db_name --protocol=tcp --local-infile=1 < mysql_tables_nodrop.sql >> mysql.log 2>&1
+mysql -vvv -u $user -p$password $db_name --protocol=tcp --local-infile=1 < mysql_tables_load.sql >> mysql.log 2>&1
 if [ $? -ne 0 ]; then ef=1; fi
 
 echo "finished loading tables ... `/bin/date`" >> mysql.log 2>&1
