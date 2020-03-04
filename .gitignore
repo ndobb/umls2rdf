@@ -1,6 +1,8 @@
 conf.py
 *.pyc
 output/*
+.vscode/
+.project
 
 *.swp
 sync*
