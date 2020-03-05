@@ -206,9 +206,9 @@ and c2.sab = 'MSH'
             if self.load_select:
                 q = self.load_select
             else:
-                q = "SELECT * FROM %s WHERE %s LIMIT %s OFFSET %s"%(self.table_name,filt,self.page_size,page * self.page_size)
+                q = "SELECT * FROM %s WHERE %s OFFSET %s ROWS FETCH NEXT %s ROWS ONLY"%(self.table_name,filt,page * self.page_size, self.page_size)
                 if filt == None or len(filt) == 0:
-                    q = "SELECT * FROM %s LIMIT %s OFFSET %s"%(self.table_name,self.page_size,page * self.page_size)
+                    q = "SELECT * FROM %s OFFSET %s ROWS FETCH NEXT %s ROWS ONLY"%(self.table_name,page * self.page_size,self.page_size)
             sys.stdout.write("[UMLS-Query] %s\n" % q)
             sys.stdout.flush()
             cursor.execute(q)
@@ -451,7 +451,6 @@ class UmlsOntology(object):
         self.ns = ns
         self.con = con
         self.load_on_cuis = load_on_cuis
-        #self.alt_uri_code = alt_uri_code
         self.atoms = list()
         self.atoms_by_code = collections.defaultdict(lambda : list())
         if not self.load_on_cuis:
