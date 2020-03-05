@@ -7,10 +7,12 @@ import sys
 import os
 import urllib
 import collections
-import pypyodbc
+import pyodbc
 import pdb
 import time
 from string import Template
+from functools import reduce
+from urllib import parse
 
 try:
     import conf
@@ -95,9 +97,9 @@ def escape(string):
 
 def get_url_term(ns,code):
     if ns[-1] == '/':
-        ret = ns + urllib.quote(code)
+        ret = ns + parse.quote(code)
     else:
-        ret = "%s/%s"%(ns,urllib.quote(code))
+        ret = "%s/%s"%(ns,parse.quote(code))
     return ret
 
 def get_rel_fragment(rel):
@@ -119,7 +121,7 @@ def get_code(reg,load_on_cuis):
     raise RuntimeError("No code on reg [%s]"%("|".join(reg)))
 
 def __get_connection():
-    return pypyodbc.connect('Driver={SQL Server Native Client 11.0};Server=127.0.0.1;Database=' + conf.DB_NAME + ';Trusted_Connection=yes')
+    return pypyodbc.connect('Driver={SQL Server};Server=127.0.0.1;Database=' + conf.DB_NAME + ';Trusted_Connection=yes')
 
 def generate_semantic_types(con,with_roots=False):
     url = get_umls_url("STY")
@@ -210,10 +212,8 @@ and c2.sab = 'MSH'
                     q = f"SELECT * FROM {self.table_name} ORDER BY 1 OFFSET {page*self.page_size} ROWS FETCH NEXT {self.page_size} ROWS ONLY"
             sys.stdout.write("[UMLS-Query] %s\n" % q)
             sys.stdout.flush()
-            cursor.execute(q)
-            result = cursor.fetchall()
             cont = False
-            for record in result:
+            for record in cursor.execute(q):
                 cont = True
                 i += 1
                 yield record
@@ -227,6 +227,7 @@ and c2.sab = 'MSH'
                 cont = False
             page += 1
         cursor.close()
+        self.conn = pypyodbc.connect('Driver={SQL Server Native Client 11.0};Server=127.0.0.1;Database=' + conf.DB_NAME + ';Trusted_Connection=yes')
 
 
 
