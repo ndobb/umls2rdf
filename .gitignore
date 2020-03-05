@@ -2,6 +2,7 @@ conf.py
 *.pyc
 output/*
 umls/
+venv/
 .vscode/
 .project
 .env
