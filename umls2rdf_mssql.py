@@ -470,11 +470,13 @@ class UmlsOntology(object):
         self.ont_properties = dict()
 
     def load_tables(self,limit=None):
+        # MRCONSO
         mrconso = UmlsTable("MRCONSO",self.con)
         if self.ont_code == 'MSH':
             self.tree = mrconso.mesh_tree()
         else:
             self.tree = None
+        # MRSAB
         mrsab  = UmlsTable("MRSAB", self.con)
         for sab_rec in mrsab.scan(filt="RSAB = '" + self.ont_code + "'", limit=1):
             self.lang = sab_rec[MRSAB_LAT].lower()
@@ -498,8 +500,7 @@ class UmlsOntology(object):
         if DEBUG:
             sys.stderr.write("length cui_roots: %d\n\n" % len(self.cui_roots))
             sys.stderr.flush()
-
-        #
+        # MRREL
         mrrel = UmlsTable("MRREL",self.con)
         mrrel_filt = "SAB = '%s' AND SUPPRESS = 'N'"%self.ont_code
         field = MRREL_AUI2 if not self.load_on_cuis else MRREL_CUI2
@@ -510,7 +511,7 @@ class UmlsOntology(object):
         if DEBUG:
             sys.stderr.write("length rels: %d\n\n" % len(self.rels))
             sys.stderr.flush()
-        #
+        # MRDEF
         mrdef = UmlsTable("MRDEF",self.con)
         mrdef_filt = "SAB = '%s'"%self.ont_code
         field = MRDEF_AUI if not self.load_on_cuis else MRDEF_CUI
@@ -521,7 +522,7 @@ class UmlsOntology(object):
         if DEBUG:
             sys.stderr.write("length defs: %d\n\n" % len(self.defs))
             sys.stderr.flush()
-        #
+        # MRSAT
         mrsat = UmlsTable("MRSAT",self.con)
         mrsat_filt = "SAB = '%s' AND CODE IS NOT NULL"%self.ont_code
         field = MRSAT_CODE if not self.load_on_cuis else MRSAT_CUI
@@ -532,7 +533,7 @@ class UmlsOntology(object):
         if DEBUG:
             sys.stderr.write("length atts: %d\n\n" % len(self.atts))
             sys.stderr.flush()
-        #
+        # MRRANK
         mrrank = UmlsTable("MRRANK",self.con)
         mrrank_filt = "SAB = '%s'"%self.ont_code
         for rank in mrrank.scan(filt=mrrank_filt):
@@ -542,7 +543,7 @@ class UmlsOntology(object):
         if DEBUG:
             sys.stderr.write("length rank: %d\n\n" % len(self.rank))
             sys.stderr.flush()
-        #
+        # MRSTY
         load_mrsty = "SELECT sty.* FROM MRSTY sty, MRCONSO conso \
         WHERE conso.SAB = '%s' AND conso.cui = sty.cui AND conso.suppress = 'N'"
         load_mrsty %= self.ont_code
