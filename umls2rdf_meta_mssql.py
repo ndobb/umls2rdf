@@ -155,7 +155,7 @@ if __name__ == "__main__":
         for k, cui in cuis.items():
             rdf_term = """<%s> a owl:Class ;\n"""%(UMLS_URL+k)
             rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%("skos:notation",k)
-            rdf_term += """rdfs:domain <%s>;\n"""%(UMLS_URL)
+            rdf_term += """\trdfs:domain <%s>;\n"""%(UMLS_URL)
             for tui in set(cui['tuis']):
                 rdf_term += """\t%s <%s> ;\n"""%(HAS_STY,get_umls_url("STY")+tui)
             rdf_term += " .\n\n"
