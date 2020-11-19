@@ -394,14 +394,15 @@ class UmlsClass(object):
         #for t in auis:
         #    rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_AUI,t)
         for t in cuis:
-            #rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_CUI,t)
-            rdf_term += "\towl:sameAs <%s\%s> ;\n" % (UMLS_URL, t)
-
+            rdf_term += "\towl:sameAs <%s%s> ;\n" % (UMLS_URL, t)
+            rdf_term += "\t%s <%s%s> ;\n" % (HAS_CUI, UMLS_URL, t)
 
         #for t in set(types):
         #    rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_TUI,t)
         #for t in set(types):
         #    rdf_term += """\t%s <%s> ;\n"""%(HAS_STY,get_umls_url("STY")+t)
+
+        rdf_term += """\trdfs:domain <%s>;\n"""%(self.ns)
 
         return rdf_term + " .\n\n"
 
