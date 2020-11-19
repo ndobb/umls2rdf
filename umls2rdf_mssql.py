@@ -342,7 +342,10 @@ class UmlsClass(object):
             # Map child relations to rdf:subClassOf (skip parent relations).
             if rel[MRREL_REL] == 'PAR':
                 continue
-            if rel[MRREL_REL] == 'CHD' and hierarchy:
+            # Skip sibling relations (bloat, easily inferrable)
+            elif rel[MRREL_REL] == 'SIB':
+                continue
+            elif rel[MRREL_REL] == 'CHD' and hierarchy:
                 o = self.getURLTerm(target_code)
                 count_parents += 1
                 if target_code == "ICD-10-CM":

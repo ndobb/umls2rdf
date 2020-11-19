@@ -216,7 +216,7 @@ if __name__ == "__main__":
     cuis = get_cuis(con, sabs)
     cuis = add_stys(con, cuis)
 
-    with open(os.path.join(conf.OUTPUT_FOLDER, 'UMLS.ttl'),'w+') as fout:
+    with open(os.path.join(conf.OUTPUT_FOLDER, 'umls.ttl'),'w+') as fout:
 
         # Prefixes
         fout.write(PREFIXES)
@@ -236,7 +236,7 @@ if __name__ == "__main__":
 
         # CUIs
         for k, cui in cuis.items():
-            rdf_term = """<%s> a owl:Class ;\n"""%UMLS_URL+k
+            rdf_term = """<%s> a owl:Class ;\n"""%(UMLS_URL+k)
             rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_CUI,k)
             for tui in set(cui['tuis']):
                 rdf_term += """\t%s <%s> ;\n"""%(HAS_STY,get_umls_url("STY")+tui)
