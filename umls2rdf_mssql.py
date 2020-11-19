@@ -38,6 +38,7 @@ ONTOLOGY_HEADER = Template("""
 
 """)
 
+UMLS_URL = "http://bioportal.bioontology.org/ontologies/umls/"
 STY_URL = "http://bioportal.bioontology.org/ontologies/umls/sty/"
 HAS_STY = "umls:hasSTY"
 HAS_AUI = "umls:aui"
@@ -121,7 +122,7 @@ def get_code(reg,load_on_cuis):
     raise RuntimeError("No code on reg [%s]"%("|".join(reg)))
 
 def __get_connection():
-    return pypyodbc.connect('Driver={SQL Server};Server=127.0.0.1;Database=' + conf.DB_NAME + ';Trusted_Connection=yes')
+    return pyodbc.connect('Driver={SQL Server};Server=127.0.0.1;Database=' + conf.DB_NAME + ";Trusted_Connection=yes;")
 
 def generate_semantic_types(con,with_roots=False):
     url = get_umls_url("STY")
@@ -227,8 +228,6 @@ and c2.sab = 'MSH'
                 cont = False
             page += 1
         cursor.close()
-        self.conn = pypyodbc.connect('Driver={SQL Server Native Client 11.0};Server=127.0.0.1;Database=' + conf.DB_NAME + ';Trusted_Connection=yes')
-
 
 
 class UmlsClass(object):
@@ -349,10 +348,10 @@ class UmlsClass(object):
                 if target_code == "ICD-10-CM":
                     #skip bogus ICD10CM parent
                     continue
-                if target_code == "138875005":
+                elif target_code == "138875005":
                     #skip bogus SNOMED root concept
                     continue
-                if target_code == "V-HL7V3.0" or target_code == "C1553931":
+                elif target_code == "V-HL7V3.0" or target_code == "C1553931":
                     #skip bogus HL7V3.0 root concept
                     continue
                 if not tree:
@@ -387,16 +386,19 @@ class UmlsClass(object):
         #auis = set([x[MRCONSO_AUI] for x in self.atoms])
         cuis = set([x[MRCONSO_CUI] for x in self.atoms])
         sty_recs = flatten([indexes for indexes in [self.sty_by_cui[cui] for cui in cuis]])
-        types = [self.sty[index][MRSTY_TUI] for index in sty_recs]
+        #types = [self.sty[index][MRSTY_TUI] for index in sty_recs]
 
         #for t in auis:
         #    rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_AUI,t)
         for t in cuis:
-            rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_CUI,t)
-        for t in set(types):
-            rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_TUI,t)
-        for t in set(types):
-            rdf_term += """\t%s <%s> ;\n"""%(HAS_STY,get_umls_url("STY")+t)
+            #rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_CUI,t)
+            rdf_term += "\towl:sameAs <%s\%s> ;\n" % (UMLS_URL, t)
+
+
+        #for t in set(types):
+        #    rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_TUI,t)
+        #for t in set(types):
+        #    rdf_term += """\t%s <%s> ;\n"""%(HAS_STY,get_umls_url("STY")+t)
 
         return rdf_term + " .\n\n"
 
@@ -738,8 +740,8 @@ if __name__ == "__main__":
         ont.load_tables()
         fout = ont.write_into(output_file,hierarchy=(ont.ont_code != "MSH"))
         ont.write_properties(fout,property_docs)
-        if conf.INCLUDE_SEMANTIC_TYPES:
-          ont.write_semantic_types(sem_types,fout)
+        #if conf.INCLUDE_SEMANTIC_TYPES:
+        #  ont.write_semantic_types(sem_types,fout)
         fout.close()
         sys.stdout.write("done!\n\n")
         sys.stdout.flush()
