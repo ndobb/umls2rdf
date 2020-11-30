@@ -2,10 +2,17 @@
 
 DEBUG = False
 
+import codecs
 import sys
 import os
+import urllib
+import collections
 import pyodbc
+import pdb
+import time
 from string import Template
+from functools import reduce
+from urllib import parse
 
 try:
     import conf
@@ -17,7 +24,7 @@ PREFIXES = """
 @prefix owl:  <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix umls: <http://bioportal.bioontology.org/ontologies/umls/> .
+@prefix umls: <http://bioportal.bioontology.org/ontologies/umls#> .
 
 """
 
@@ -31,9 +38,9 @@ ONTOLOGY_HEADER = Template("""
 
 """)
 
-UMLS_URL = "http://bioportal.bioontology.org/ontologies/umls/"
-STY_URL = "http://bioportal.bioontology.org/ontologies/umls/sty/"
-HAS_STY = "umls:hasSTY"
+UMLS_URL = "http://bioportal.bioontology.org/ontologies/umls"
+STY_URL = "http://bioportal.bioontology.org/ontologies/umls/sty"
+HAS_STY = "umls:sty"
 HAS_AUI = "umls:aui"
 HAS_CUI = "umls:cui"
 HAS_TUI = "umls:tui"
@@ -84,7 +91,7 @@ def __get_connection():
     return pyodbc.connect('Driver={SQL Server};Server=127.0.0.1;Database=' + conf.DB_NAME + ";Trusted_Connection=yes;")
 
 def get_umls_url(code):
-    return "%s%s/"%(conf.UMLS_BASE_URI,code)
+    return "%s%s"%(conf.UMLS_BASE_URI,code)
 
 def get_cuis(con, sabs_of_interest):
     query = 'SELECT DISTINCT CUI FROM dbo.MRCONSO WHERE SAB IN (' + (",").join([ f"'{s}'" for s in sabs_of_interest ]) + ')'
@@ -147,16 +154,15 @@ if __name__ == "__main__":
            label = "UMLS",
            comment = comment,
            versioninfo = conf.UMLS_VERSION,
-           uri = UMLS_URL
+           uri = UMLS_URL+"#"
         )
         fout.write(ONTOLOGY_HEADER.substitute(header_values))
 
         # CUIs
         for k, cui in cuis.items():
-            rdf_term = """<%s> a owl:Class ;\n"""%(UMLS_URL+k)
+            rdf_term = """<%s#%s> a owl:Class ;\n"""%(UMLS_URL, k)
             rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%("skos:notation",k)
-            rdf_term += """\trdfs:domain <%s>;\n"""%(UMLS_URL)
             for tui in set(cui['tuis']):
-                rdf_term += """\t%s <%s> ;\n"""%(HAS_STY,get_umls_url("STY")+tui)
+                rdf_term += """\t%s <%s#%s> ;\n"""%(HAS_STY, get_umls_url("STY"), tui)
             rdf_term += " .\n\n"
             fout.write(rdf_term)

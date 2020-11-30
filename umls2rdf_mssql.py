@@ -24,7 +24,7 @@ PREFIXES = """
 @prefix owl:  <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix umls: <http://bioportal.bioontology.org/ontologies/umls/> .
+@prefix umls: <http://bioportal.bioontology.org/ontologies/umls#> .
 
 """
 
@@ -38,8 +38,8 @@ ONTOLOGY_HEADER = Template("""
 
 """)
 
-UMLS_URL = "http://bioportal.bioontology.org/ontologies/umls/"
-STY_URL = "http://bioportal.bioontology.org/ontologies/umls/sty/"
+UMLS_URL = "http://bioportal.bioontology.org/ontologies/umls#"
+STY_URL = "http://bioportal.bioontology.org/ontologies/umls/sty#"
 HAS_STY = "umls:hasSTY"
 HAS_AUI = "umls:aui"
 HAS_CUI = "umls:cui"
@@ -88,7 +88,7 @@ MRSAB_LAT = 19
 UMLS_LANGCODE_MAP = {"eng" : "en", "fre" : "fr", "cze" : "cz", "fin" : "fi", "ger" : "de", "ita" : "it", "jpn" : "jp", "pol" : "pl", "por" : "pt", "rus" : "ru", "spa" : "es", "swe" : "sw", "scr" : "hr", "dut" : "nl", "lav" : "lv", "hun" : "hu", "kor" : "kr", "dan" : "da", "nor" : "no", "heb" : "he", "baq" : "eu"}
 
 def get_umls_url(code):
-    return "%s%s/"%(conf.UMLS_BASE_URI,code)
+    return "%s%s#"%(conf.UMLS_BASE_URI,code)
 
 def flatten(matrix):
     return reduce(lambda x,y: x+y,matrix)
@@ -97,10 +97,10 @@ def escape(string):
     return string.replace("\\","\\\\").replace('"','\\"')
 
 def get_url_term(ns,code):
-    if ns[-1] == '/':
+    if ns[-1] == '#':
         ret = ns + parse.quote(code)
     else:
-        ret = "%s/%s"%(ns,parse.quote(code))
+        ret = "%s#%s"%(ns,parse.quote(code))
     return ret
 
 def get_rel_fragment(rel):
@@ -303,106 +303,199 @@ class UmlsClass(object):
     def properties(self):
         return self.class_properties
 
-    def toRDF(self,fmt="Turtle",hierarchy=True,lang="en",tree=None):
+
+
+
+
+    def toLeafAiRDF(self, fmt="Turtle", hierarchy=True, lang="en", tree=None):
         if not fmt == "Turtle":
             raise RuntimeError("Only fmt='Turtle' is currently supported")
         term_code = self.code()
-        url_term = self.getURLTerm(term_code)
-        prefLabel = self.getPrefLabel()
-        altLabels = self.getAltLabels(prefLabel)
-        rdf_term = """<%s> a owl:Class ;
-\tskos:prefLabel \"\"\"%s\"\"\"@%s ;
-\tskos:notation \"\"\"%s\"\"\"^^xsd:string ;
-"""%(url_term,escape(prefLabel),lang,escape(term_code))
 
-        if len(altLabels) > 0:
-            rdf_term += """\tskos:altLabel %s ;
-"""%(" , ".join(map(lambda x: '\"\"\"%s\"\"\"@%s'%(escape(x),lang),
-                                                            set(altLabels))))
+        rdf_terms = ""
+        for cui in set([x[MRCONSO_CUI] for x in self.atoms]):
+            cui_term = UMLS_URL+cui
+            url_term = self.getURLTerm(term_code)
+            prefLabel = self.getPrefLabel()
+            altLabels = self.getAltLabels(prefLabel)
+            rdf_terms += """<%s> a owl:Class ;\n"""%(cui_term)
 
-        if self.is_root:
-            rdf_term += '\trdfs:subClassOf owl:Thing ;\n'
+            if self.is_root:
+                rdf_terms += '\trdfs:subClassOf owl:Thing ;\n'
 
-        if len(self.defs) > 0:
-            rdf_term += """\tskos:definition %s ;
-"""%(" , ".join(map(lambda x: '\"\"\"%s\"\"\"@%s'%(escape(x[MRDEF_DEF]),lang),
-                                                                set(self.defs))))
+            if len(self.defs) > 0:
+                rdf_terms += """\tskos:definition %s ;
+"""%(" , ".join(map(lambda x: '\"\"\"%s\"\"\"@%s'%(escape(x[MRDEF_DEF]),lang), set(self.defs))))
 
-        count_parents = 0
-        if tree:
-            if term_code in tree:
-                for parent in tree[term_code]:
-                    o = self.getURLTerm(parent)
-                    rdf_term += "\trdfs:subClassOf <%s> ;\n" % (o,)
-        for rel in self.rels:
-            source_code = get_rel_code_source(rel,self.load_on_cuis)
-            target_code = get_rel_code_target(rel,self.load_on_cuis)
-            if source_code != term_code:
-                raise RuntimeError("Inconsistent code in rel")
-            # Map child relations to rdf:subClassOf (skip parent relations).
-            if rel[MRREL_REL] == 'PAR':
-                continue
-            # Skip sibling relations (bloat, easily inferrable)
-            elif rel[MRREL_REL] == 'SIB':
-                continue
-            elif rel[MRREL_REL] == 'CHD' and hierarchy:
-                o = self.getURLTerm(target_code)
-                count_parents += 1
-                if target_code == "ICD-10-CM":
-                    #skip bogus ICD10CM parent
+            count_parents = 0
+            if tree:
+                if term_code in tree:
+                    for parent in tree[term_code]:
+                        o = self.getURLTerm(parent)
+                        rdf_terms += "\trdfs:subClassOf <%s> ;\n" % (o,)
+            for rel in self.rels:
+                source_code = get_rel_code_source(rel,self.load_on_cuis)
+                target_code = get_rel_code_target(rel,self.load_on_cuis)
+                target_cui  = rel[MRCONSO_CUI]
+                if source_code != term_code:
+                    raise RuntimeError("Inconsistent code in rel")
+                # Map child relations to rdf:subClassOf (skip parent relations).
+                if rel[MRREL_REL] == 'PAR':
                     continue
-                elif target_code == "138875005":
-                    #skip bogus SNOMED root concept
+                # Skip sibling relations (bloat, easily inferrable)
+                elif rel[MRREL_REL] == 'SIB':
                     continue
-                elif target_code == "V-HL7V3.0" or target_code == "C1553931":
-                    #skip bogus HL7V3.0 root concept
+                elif rel[MRREL_REL] == 'CHD' and hierarchy:
+                    o = self.getURLTerm(target_code)
+                    count_parents += 1
+                    if target_code == "ICD-10-CM":
+                        #skip bogus ICD10CM parent
+                        continue
+                    elif target_code == "138875005":
+                        #skip bogus SNOMED root concept
+                        continue
+                    elif target_code == "V-HL7V3.0" or target_code == "C1553931":
+                        #skip bogus HL7V3.0 root concept
+                        continue
+                    if not tree:
+                        rdf_terms += "\trdfs:subClassOf <%s> ;\n"%(UMLS_URL+target_cui)
+                else:
+                    p = self.getURLTerm(get_rel_fragment(rel))
+                    o = self.getURLTerm(target_code)
+                    rdf_terms += "\t<%s> <%s> ;\n" % (p,o)
+                    if p not in self.class_properties:
+                        self.class_properties[p] = \
+                            UmlsAttribute(p,get_rel_fragment(rel))
+
+            for att in self.atts:
+                atn = att[MRSAT_ATN]
+                atv = att[MRSAT_ATV]
+                if atn == 'AQ':
+                    # Skip all these values (they are replicated in MRREL for
+                    # SNOMEDCT, unknown relationship for MSH).
+                    #if DEBUG:
+                    #  sys.stderr.write("att: %s\n" % str(att))
+                    #  sys.stderr.flush()
                     continue
-                if not tree:
-                    rdf_term += "\trdfs:subClassOf <%s> ;\n" % (o,)
-            else:
-                p = self.getURLTerm(get_rel_fragment(rel))
-                o = self.getURLTerm(target_code)
-                rdf_term += "\t<%s> <%s> ;\n" % (p,o)
+                #MESH ROOTS ONLY DESCRIPTORS
+                if tree and atn == "MN" and term_code.startswith("D"):
+                    if len(atv.split(".")) == 1:
+                        rdf_terms += "\trdfs:subClassOf owl:Thing;\n"
+                p = self.getURLTerm(atn)
+                rdf_terms += "\t<%s> \"\"\"%s\"\"\"^^xsd:string ;\n"%(p, escape(atv))
                 if p not in self.class_properties:
-                    self.class_properties[p] = \
-                        UmlsAttribute(p,get_rel_fragment(rel))
+                    self.class_properties[p] = UmlsAttribute(p,atn)
 
-        for att in self.atts:
-            atn = att[MRSAT_ATN]
-            atv = att[MRSAT_ATV]
-            if atn == 'AQ':
-                # Skip all these values (they are replicated in MRREL for
-                # SNOMEDCT, unknown relationship for MSH).
-                #if DEBUG:
-                #  sys.stderr.write("att: %s\n" % str(att))
-                #  sys.stderr.flush()
-                continue
-            #MESH ROOTS ONLY DESCRIPTORS
-            if tree and atn == "MN" and term_code.startswith("D"):
-                if len(atv.split(".")) == 1:
-                    rdf_term += "\trdfs:subClassOf owl:Thing;\n"
-            p = self.getURLTerm(atn)
-            rdf_term += "\t<%s> \"\"\"%s\"\"\"^^xsd:string ;\n"%(p, escape(atv))
-            if p not in self.class_properties:
-                self.class_properties[p] = UmlsAttribute(p,atn)
+            # Add code relation
+            rdf_terms += """\tumls:code <%s> ;\n"""%(url_term)
+            rdf_terms += " .\n\n"
 
-        #auis = set([x[MRCONSO_AUI] for x in self.atoms])
-        cuis = set([x[MRCONSO_CUI] for x in self.atoms])
-        sty_recs = flatten([indexes for indexes in [self.sty_by_cui[cui] for cui in cuis]])
-        #types = [self.sty[index][MRSTY_TUI] for index in sty_recs]
+            # Add new triple for code
+            rdf_terms += """<%s> a owl:Class ;
+\tskos:notation \"\"\"%s\"\"\"^^xsd:string ;
+\tskos:prefLabel \"\"\"%s\"\"\"@%s ;
+\trdfs:domain <%s> ;
+"""%(url_term, escape(term_code), escape(prefLabel), lang, self.ns)
+            if len(altLabels) > 0:
+                rdf_terms += """\tskos:altLabel %s ;
+"""%(" , ".join(map(lambda x: '\"\"\"%s\"\"\"@%s'%(escape(x),lang),set(altLabels))))
+            rdf_terms += " .\n\n"
 
-        #for t in auis:
-        #    rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_AUI,t)
-        for t in cuis:
-            rdf_term += "\towl:sameAs <%s%s> ;\n" % (UMLS_URL, t)
-            rdf_term += "\t%s <%s%s> ;\n" % (HAS_CUI, UMLS_URL, t)
+        return rdf_terms
 
-        #for t in set(types):
-        #    rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_TUI,t)
-        #for t in set(types):
-        #    rdf_term += """\t%s <%s> ;\n"""%(HAS_STY,get_umls_url("STY")+t)
 
-        rdf_term += """\trdfs:domain <%s>;\n"""%(self.ns)
+
+
+        def toRDF(self,fmt="Turtle",hierarchy=True,lang="en",tree=None):
+            if not fmt == "Turtle":
+                raise RuntimeError("Only fmt='Turtle' is currently supported")
+            term_code = self.code()
+            url_term = self.getURLTerm(term_code)
+            prefLabel = self.getPrefLabel()
+            altLabels = self.getAltLabels(prefLabel)
+            rdf_term = """<%s> a owl:Class ;
+    \tskos:prefLabel \"\"\"%s\"\"\"@%s ;
+    \tskos:notation \"\"\"%s\"\"\"^^xsd:string ;
+    """%(url_term,escape(prefLabel),lang,escape(term_code))
+
+            if len(altLabels) > 0:
+                rdf_term += """\tskos:altLabel %s ;
+    """%(" , ".join(map(lambda x: '\"\"\"%s\"\"\"@%s'%(escape(x),lang),
+                                                                set(altLabels))))
+
+            if self.is_root:
+                rdf_term += '\trdfs:subClassOf owl:Thing ;\n'
+
+            if len(self.defs) > 0:
+                rdf_term += """\tskos:definition %s ;
+    """%(" , ".join(map(lambda x: '\"\"\"%s\"\"\"@%s'%(escape(x[MRDEF_DEF]),lang),
+                                                                    set(self.defs))))
+
+            count_parents = 0
+            if tree:
+                if term_code in tree:
+                    for parent in tree[term_code]:
+                        o = self.getURLTerm(parent)
+                        rdf_term += "\trdfs:subClassOf <%s> ;\n" % (o,)
+            for rel in self.rels:
+                source_code = get_rel_code_source(rel,self.load_on_cuis)
+                target_code = get_rel_code_target(rel,self.load_on_cuis)
+                if source_code != term_code:
+                    raise RuntimeError("Inconsistent code in rel")
+                # Map child relations to rdf:subClassOf (skip parent relations).
+                if rel[MRREL_REL] == 'PAR':
+                    continue
+                elif rel[MRREL_REL] == 'CHD' and hierarchy:
+                    o = self.getURLTerm(target_code)
+                    count_parents += 1
+                    if target_code == "ICD-10-CM":
+                        #skip bogus ICD10CM parent
+                        continue
+                    elif target_code == "138875005":
+                        #skip bogus SNOMED root concept
+                        continue
+                    elif target_code == "V-HL7V3.0" or target_code == "C1553931":
+                        #skip bogus HL7V3.0 root concept
+                        continue
+                    if not tree:
+                        rdf_term += "\trdfs:subClassOf <%s> ;\n" % (o,)
+                else:
+                    p = self.getURLTerm(get_rel_fragment(rel))
+                    o = self.getURLTerm(target_code)
+                    rdf_term += "\t<%s> <%s> ;\n" % (p,o)
+                    if p not in self.class_properties:
+                        self.class_properties[p] = \
+                            UmlsAttribute(p,get_rel_fragment(rel))
+
+            for att in self.atts:
+                atn = att[MRSAT_ATN]
+                atv = att[MRSAT_ATV]
+                if atn == 'AQ':
+                    # Skip all these values (they are replicated in MRREL for
+                    # SNOMEDCT, unknown relationship for MSH).
+                    #if DEBUG:
+                    #  sys.stderr.write("att: %s\n" % str(att))
+                    #  sys.stderr.flush()
+                    continue
+                #MESH ROOTS ONLY DESCRIPTORS
+                if tree and atn == "MN" and term_code.startswith("D"):
+                    if len(atv.split(".")) == 1:
+                        rdf_term += "\trdfs:subClassOf owl:Thing;\n"
+                p = self.getURLTerm(atn)
+                rdf_term += "\t<%s> \"\"\"%s\"\"\"^^xsd:string ;\n"%(p, escape(atv))
+                if p not in self.class_properties:
+                    self.class_properties[p] = UmlsAttribute(p,atn)
+
+            cuis = set([x[MRCONSO_CUI] for x in self.atoms])
+            sty_recs = flatten([indexes for indexes in [self.sty_by_cui[cui] for cui in cuis]])
+            types = [self.sty[index][MRSTY_TUI] for index in sty_recs]
+
+            for t in cuis:
+                rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_CUI,t)
+            for t in set(types):
+                rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_TUI,t)
+            for t in set(types):
+                rdf_term += """\t%s <%s> ;\n"""%(HAS_STY,get_umls_url("STY")+t)
 
         return rdf_term + " .\n\n"
 
@@ -650,7 +743,8 @@ class UmlsOntology(object):
         fout.write(ONTOLOGY_HEADER.substitute(header_values))
         for term in self.terms():
             try:
-                rdf_text = term.toRDF(lang=UMLS_LANGCODE_MAP[self.lang],tree=self.tree)
+                rdf_text = term.toLeafAiRDF(lang=UMLS_LANGCODE_MAP[self.lang],tree=self.tree)
+                #rdf_text = term.toRDF(lang=UMLS_LANGCODE_MAP[self.lang],tree=self.tree)
                 fout.write(rdf_text)
             except Exception as e:
                 print("ERROR dumping term ", e)
