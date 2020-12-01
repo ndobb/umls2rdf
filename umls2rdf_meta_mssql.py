@@ -130,7 +130,7 @@ def get_pref_label(concept):
     pref = [ x for x in concept['ttys'] if x['sab'] == 'SNOMEDCT_US' ]
     if any(pref):
         return pref[0]['name']
-    pref = [ x for x in concept['ttys'] if x['tty'] = 'PT' ]
+    pref = [ x for x in concept['ttys'] if x['tty'] == 'PT' ]
     if any(pref):
         return pref[0]['name']
     pref = [ x for x in concept['ttys'] if x['tty'] in {'NM','SCN','HX'} ]
