@@ -94,13 +94,17 @@ def get_umls_url(code):
     return "%s%s"%(conf.UMLS_BASE_URI,code)
 
 def get_cuis(con, sabs_of_interest):
-    query = 'SELECT DISTINCT CUI FROM dbo.MRCONSO WHERE SAB IN (' + (",").join([ f"'{s}'" for s in sabs_of_interest ]) + ')'
+    query = "SELECT CUI, TTY, SAB, STR FROM dbo.MRCONSO WHERE LAT = 'ENG' AND SAB IN (" + (",").join([ f"'{s}'" for s in sabs_of_interest ]) + ')'
     cursor = con.cursor()
     cuis = {}
     sys.stdout.write("[UMLS-Query] %s\n" % query)
     sys.stdout.flush()
     for rec in cursor.execute(query):
-        cuis[rec[0]] = { 'tuis': [] }
+        cui, tty, sab, name = rec[0], rec[1], rec[2], rec[3]
+        if cui in cuis:
+            cuis[cui]['ttys'].append({ 'tty': tty, 'name': name, 'sab': sab })
+        else:
+            cuis[cui] = { 'tuis': [], 'ttys': [{ 'tty': tty, 'name': name, 'sab': sab }] }
     cursor.close()
 
     return cuis
@@ -119,11 +123,24 @@ def add_stys(con, cuis):
 
     return cuis
 
+def get_pref_label(concept):
+    pref = [ x for x in concept['ttys'] if x['tty'] == 'PT' and x['sab'] == 'SNOMEDCT_US' ]
+    if any(pref):
+        return pref[0]['name']
+    pref = [ x for x in concept['ttys'] if x['sab'] == 'SNOMEDCT_US' ]
+    if any(pref):
+        return pref[0]['name']
+    pref = [ x for x in concept['ttys'] if x['tty'] = 'PT' ]
+    if any(pref):
+        return pref[0]['name']
+    pref = [ x for x in concept['ttys'] if x['tty'] in {'NM','SCN','HX'} ]
+    if any(pref):
+        return pref[0]['name']
+    return concept[0]['name']
+
 
 if __name__ == "__main__":
-
     con = __get_connection()
-
     with open("umls.conf","r") as fconf:
         sabs = []
         umls_conf_tmp = [line.split(",")[0] for line in fconf.read().splitlines() if len(line) > 0 and not line.startswith('#')]
@@ -160,8 +177,10 @@ if __name__ == "__main__":
 
         # CUIs
         for k, cui in cuis.items():
+            pref_label = get_pref_label(cui)
             rdf_term = """<%s#%s> a owl:Class ;\n"""%(UMLS_URL, k)
-            rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%("skos:notation",k)
+            rdf_term += """\t%s \"\"\"%s\"\"\" ;\n"""%("skos:prefLabel", pref_label+"@en")
+            rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%("skos:notation", k)
             for tui in set(cui['tuis']):
                 rdf_term += """\t%s <%s#%s> ;\n"""%(HAS_STY, get_umls_url("STY"), tui)
             rdf_term += " .\n\n"

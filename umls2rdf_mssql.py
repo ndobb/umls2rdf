@@ -362,7 +362,7 @@ class UmlsClass(object):
                 else:
                     p = self.getURLTerm(get_rel_fragment(rel))
                     o = self.getURLTerm(target_code)
-                    rdf_terms += "\t<%s> <%s> ;\n" % (p,o)
+                    rdf_terms += "\t<%s> <%s> ;\n" % (p,UMLS_URL+target_cui)
                     if p not in self.class_properties:
                         self.class_properties[p] = \
                             UmlsAttribute(p,get_rel_fragment(rel))
